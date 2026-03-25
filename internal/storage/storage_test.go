@@ -105,7 +105,9 @@ func TestStorageRemove(t *testing.T) {
 	st := NewStorage(filepath.Join(tmpDir, "test-remove.json"))
 
 	// Add then remove
-	st.Add("octocat", "", nil)
+	if err := st.Add("octocat", "", nil); err != nil {
+		t.Fatalf("Failed to add: %v", err)
+	}
 	if err := st.Remove("octocat"); err != nil {
 		t.Fatalf("Failed to remove: %v", err)
 	}
@@ -144,7 +146,9 @@ func TestStorageDelete(t *testing.T) {
 
 	// Create and save
 	list := models.NewFollowList()
-	st.Save(list)
+	if err := st.Save(list); err != nil {
+		t.Fatalf("Failed to save: %v", err)
+	}
 
 	// Delete
 	if err := st.Delete(); err != nil {
@@ -163,8 +167,12 @@ func TestStorageExportImport(t *testing.T) {
 	exportPath := filepath.Join(tmpDir, "exported.json")
 
 	// Add some data
-	st.Add("octocat", "Note", []string{"tag1"})
-	st.Add("torvalds", "", []string{"linux"})
+	if err := st.Add("octocat", "Note", []string{"tag1"}); err != nil {
+		t.Fatalf("Failed to add octocat: %v", err)
+	}
+	if err := st.Add("torvalds", "", []string{"linux"}); err != nil {
+		t.Fatalf("Failed to add torvalds: %v", err)
+	}
 
 	// Export
 	if err := st.Export(exportPath, "json"); err != nil {

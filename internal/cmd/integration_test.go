@@ -97,7 +97,9 @@ func TestAddAndListIntegration(t *testing.T) {
 				{"username": "imported2", "followed_at": "2024-01-02T00:00:00Z"}
 			]
 		}`
-		os.WriteFile(importPath, []byte(importData), 0644)
+		if err := os.WriteFile(importPath, []byte(importData), 0644); err != nil {
+			t.Fatalf("Failed to write import file: %v", err)
+		}
 
 		// Import with merge
 		err := st.Import(importPath, true)
@@ -124,10 +126,18 @@ func TestFilteringIntegration(t *testing.T) {
 	st := storage.NewStorage(storagePath)
 
 	// Setup test data
-	st.Add("gopher", "Go developer", []string{"golang", "developer"})
-	st.Add("pythonista", "Python developer", []string{"python", "developer"})
-	st.Add("rustacean", "Rust developer", []string{"rust", "developer"})
-	st.Add("golang_org", "Official Go", []string{"golang", "official"})
+	if err := st.Add("gopher", "Go developer", []string{"golang", "developer"}); err != nil {
+		t.Fatalf("Failed to add gopher: %v", err)
+	}
+	if err := st.Add("pythonista", "Python developer", []string{"python", "developer"}); err != nil {
+		t.Fatalf("Failed to add pythonista: %v", err)
+	}
+	if err := st.Add("rustacean", "Rust developer", []string{"rust", "developer"}); err != nil {
+		t.Fatalf("Failed to add rustacean: %v", err)
+	}
+	if err := st.Add("golang_org", "Official Go", []string{"golang", "official"}); err != nil {
+		t.Fatalf("Failed to add golang_org: %v", err)
+	}
 
 	list, _ := st.Load()
 

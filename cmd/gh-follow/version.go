@@ -3,7 +3,8 @@ package main
 import "fmt"
 
 // Version is the current version of gh-follow
-const Version = "1.0.0"
+// This is set at build time via ldflags
+var Version = "1.0.0"
 
 // Build information (set at build time)
 var (

@@ -3,7 +3,8 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - id: "gh-follow"
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
@@ -12,10 +13,10 @@ builds:
     goarch:
       - amd64
       - arm64
-    main: .
+    main: ./cmd/gh-follow
     binary: gh-follow
     ldflags:
-      - -s -w -X main.Version={{.Version}} -X main.BuildDate={{.Date}} -X main.BuildCommit={{.Commit}}
+      - "-s -w -X main.Version={{.Version}} -X main.BuildDate={{.Date}} -X main.BuildCommit={{.Commit}}"
 
 archives:
   - format: tar.gz
@@ -48,5 +49,6 @@ brews:
     repository:
       owner: h1s97x
       name: homebrew-tap
+    directory: "."
     install: |
       bin.install "gh-follow"
