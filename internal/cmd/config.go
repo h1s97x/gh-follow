@@ -60,7 +60,10 @@ func ConfigSet(c *cli.Context) error {
 			cfg.Sync.AutoSync = value == "true"
 		case "sync.sync_interval":
 			var interval int
-			fmt.Sscanf(value, "%d", &interval)
+			if _, err := fmt.Sscanf(value, "%d", &interval); err != nil {
+				fmt.Printf("Warning: invalid interval value: %v\n", err)
+				return
+			}
 			cfg.Sync.SyncInterval = interval
 		case "display.default_format":
 			cfg.Display.DefaultFormat = value
@@ -136,7 +139,10 @@ func ConfigReset(c *cli.Context) error {
 	if !force {
 		fmt.Print("Are you sure you want to reset configuration to defaults? [y/N]: ")
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			fmt.Println("Cancelled")
+			return nil
+		}
 		if confirm != "y" && confirm != "Y" {
 			fmt.Println("Cancelled")
 			return nil

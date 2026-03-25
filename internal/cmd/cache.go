@@ -91,7 +91,10 @@ func CacheClear(c *cli.Context) error {
 	if !force {
 		fmt.Print("Are you sure you want to clear the cache? [y/N]: ")
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			fmt.Println("Cancelled")
+			return nil
+		}
 		if confirm != "y" && confirm != "Y" {
 			fmt.Println("Cancelled")
 			return nil
@@ -166,7 +169,9 @@ func CacheRefresh(c *cli.Context) error {
 			Following:   user.GetFollowing(),
 		}
 
-		uc.Set(cachedUser)
+		if err := uc.Set(cachedUser); err != nil {
+			fmt.Printf("⚠️  Failed to cache %s: %v\n", f.Username, err)
+		}
 		fmt.Printf("✅ Refreshed %s\n", f.Username)
 		successCount++
 
@@ -254,7 +259,8 @@ func FetchUserWithCache(ctx context.Context, gc *gh_client.GitHubClient, usernam
 		Following:   user.GetFollowing(),
 	}
 
-	uc.Set(cachedUser)
+	// Ignore cache write errors - the data will still be returned
+	_ = uc.Set(cachedUser)
 
 	return cachedUser, nil
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/h1s97x/gh-follow/internal/cache"
 	gh_client "github.com/h1s97x/gh-follow/internal/github"
 	"github.com/h1s97x/gh-follow/internal/storage"
 	"github.com/h1s97x/gh-follow/internal/suggest"
@@ -206,22 +205,3 @@ func SuggestInactive(c *cli.Context) error {
 	return nil
 }
 
-// formatNumber formats a number with commas
-func formatNumber(n int) string {
-	if n < 1000 {
-		return fmt.Sprintf("%d", n)
-	} else if n < 1000000 {
-		return fmt.Sprintf("%.1fk", float64(n)/1000)
-	}
-	return fmt.Sprintf("%.1fm", float64(n)/1000000)
-}
-
-// getUserCacheFromSuggestion gets user cache from a suggestion
-func getUserCacheFromSuggestion(s *suggest.Suggestion) *cache.UserCache {
-	return &cache.UserCache{
-		Login:     s.Username,
-		Name:      s.Name,
-		Bio:       s.Bio,
-		Followers: s.Followers,
-	}
-}

@@ -79,7 +79,9 @@ func BatchFollow(c *cli.Context) error {
 		}
 		for _, r := range results {
 			if r.Success {
-				list.Add(r.Username, "", nil)
+				if err := list.Add(r.Username, "", nil); err != nil {
+					fmt.Printf("Warning: failed to add %s to local list: %v\n", r.Username, err)
+				}
 			}
 		}
 		if err := st.Save(list); err != nil {
@@ -131,7 +133,10 @@ func BatchUnfollow(c *cli.Context) error {
 	if !c.Bool("force") && !dryRun {
 		fmt.Printf("Unfollow %d users? [y/N]: ", len(usernames))
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			fmt.Println("Cancelled")
+			return nil
+		}
 		if confirm != "y" && confirm != "Y" {
 			fmt.Println("Cancelled")
 			return nil
@@ -293,7 +298,9 @@ func batchFollowUsers(usernames []string, c *cli.Context) error {
 		}
 		for _, r := range results {
 			if r.Success {
-				list.Add(r.Username, "", nil)
+				if err := list.Add(r.Username, "", nil); err != nil {
+					fmt.Printf("Warning: failed to add %s to local list: %v\n", r.Username, err)
+				}
 			}
 		}
 		if err := st.Save(list); err != nil {

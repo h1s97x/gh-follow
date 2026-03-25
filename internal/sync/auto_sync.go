@@ -91,7 +91,7 @@ func (as *AutoSync) PerformSync(ctx context.Context, useGist bool) error {
 	}
 
 	// Update last sync time
-	as.config.Update(func(c *models.Config) {
+	_ = as.config.Update(func(c *models.Config) {
 		c.Sync.LastSync = time.Now()
 	})
 

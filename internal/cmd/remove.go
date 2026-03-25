@@ -50,7 +50,10 @@ func Remove(c *cli.Context) error {
 	if !force && !silent {
 		fmt.Printf("Are you sure you want to unfollow %d user(s)? [y/N]: ", len(args))
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			fmt.Println("Cancelled")
+			return nil
+		}
 		if confirm != "y" && confirm != "Y" {
 			fmt.Println("Cancelled")
 			return nil

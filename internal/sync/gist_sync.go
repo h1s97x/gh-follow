@@ -152,9 +152,7 @@ func mergeLists(local, remote *models.FollowList, strategy string) *models.Follo
 	switch strategy {
 	case "local-wins":
 		// Local changes take precedence
-		for _, f := range local.Follows {
-			merged.Follows = append(merged.Follows, f)
-		}
+		merged.Follows = append(merged.Follows, local.Follows...)
 		// Add remote-only follows
 		for username, f := range remoteMap {
 			if _, exists := localMap[username]; !exists {
@@ -164,9 +162,7 @@ func mergeLists(local, remote *models.FollowList, strategy string) *models.Follo
 
 	case "remote-wins":
 		// Remote changes take precedence
-		for _, f := range remote.Follows {
-			merged.Follows = append(merged.Follows, f)
-		}
+		merged.Follows = append(merged.Follows, remote.Follows...)
 		// Add local-only follows
 		for username, f := range localMap {
 			if _, exists := remoteMap[username]; !exists {
