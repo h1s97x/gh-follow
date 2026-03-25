@@ -1,0 +1,52 @@
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: .
+    binary: gh-follow
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.BuildDate={{.Date}} -X main.BuildCommit={{.Commit}}
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - typo
+
+release:
+  github:
+    owner: h1s97x
+    name: gh-follow
+
+brews:
+  - name: gh-follow
+    homepage: "https://github.com/h1s97x/gh-follow"
+    description: "A GitHub CLI extension to manage your follow list from the terminal"
+    repository:
+      owner: h1s97x
+      name: homebrew-tap
+    install: |
+      bin.install "gh-follow"
