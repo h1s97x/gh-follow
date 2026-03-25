@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2024-03-25T10:30:00Z",
+  "follows": [
+    {
+      "username": "octocat",
+      "followed_at": "2024-03-20T15:30:00Z",
+      "notes": "GitHub mascot",
+      "tags": ["developer", "go"]
+    },
+    {
+      "username": "torvalds",
+      "followed_at": "2024-03-15T10:00:00Z",
+      "notes": "Linux creator",
+      "tags": ["linux", "kernel"]
+    },
+    {
+      "username": "golang",
+      "followed_at": "2024-03-10T08:00:00Z",
+      "notes": "",
+      "tags": ["go"]
+    }
+  ],
+  "metadata": {
+    "total_count": 3,
+    "last_sync": "2024-03-25T10:30:00Z",
+    "sync_status": "success"
+  }
+}
