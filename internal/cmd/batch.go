@@ -79,9 +79,7 @@ func BatchFollow(c *cli.Context) error {
 		}
 		for _, r := range results {
 			if r.Success {
-				if err := list.Add(r.Username, "", nil); err != nil {
-					fmt.Printf("Warning: failed to add %s to local list: %v\n", r.Username, err)
-				}
+				list.Add(r.Username, "", nil)
 			}
 		}
 		if err := st.Save(list); err != nil {
@@ -298,9 +296,7 @@ func batchFollowUsers(usernames []string, c *cli.Context) error {
 		}
 		for _, r := range results {
 			if r.Success {
-				if err := list.Add(r.Username, "", nil); err != nil {
-					fmt.Printf("Warning: failed to add %s to local list: %v\n", r.Username, err)
-				}
+				list.Add(r.Username, "", nil)
 			}
 		}
 		if err := st.Save(list); err != nil {
