@@ -9,150 +9,84 @@ REPO="h1s97x/gh-follow"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Detect OS and architecture
-UNAME_OS=$(uname -s)
-UNAME_ARCH=$(uname -m)
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
 
-# Normalize OS
-case "$UNAME_OS" in
-    Darwin|darwin)
-        OS="darwin"
-        ;;
-    Linux|linux)
-        OS="linux"
-        ;;
-    MINGW*|MSYS*|CYGWIN*|mingw*|msys*|cygwin*|Windows*|windows*)
-        OS="windows"
-        ;;
+# Map architecture
+case $ARCH in
+    x86_64|amd64) ARCH="amd64" ;;
+    aarch64|arm64) ARCH="arm64" ;;
     *)
-        OS=$(echo "$UNAME_OS" | tr '[:upper:]' '[:lower:]')
-        ;;
-esac
-
-# Normalize architecture
-case "$UNAME_ARCH" in
-    x86_64|amd64|AMD64)
-        ARCH="amd64"
-        ;;
-    aarch64|arm64|ARM64)
-        ARCH="arm64"
-        ;;
-    *)
-        echo "⚠️  Unsupported architecture: $UNAME_ARCH, building from source..."
+        echo "⚠️  Unsupported architecture: $ARCH, building from source..."
         BUILD_FROM_SOURCE=true
         ;;
 esac
 
-# Set format based on OS
+# Map OS and set archive format
 FORMAT="tar.gz"
-if [ "$OS" = "windows" ]; then
-    FORMAT="zip"
-fi
+case $OS in
+    darwin)
+        BINARY="${EXTENSION_NAME}-darwin-${ARCH}"
+        ;;
+    linux)
+        BINARY="${EXTENSION_NAME}-linux-${ARCH}"
+        ;;
+    mingw*|msys*|cygwin*|windows*)
+        BINARY="${EXTENSION_NAME}-windows-${ARCH}"
+        FORMAT="zip"
+        OS="windows"
+        ;;
+    *)
+        echo "⚠️  Unsupported OS: $OS, building from source..."
+        BUILD_FROM_SOURCE=true
+        ;;
+esac
 
 # Try to download pre-built binary
 if [ "$BUILD_FROM_SOURCE" != true ]; then
     echo "🔍 Checking for pre-built binary..."
-    echo "   Detected: ${OS}-${ARCH}"
     
-    # Get latest release using gh api
+    # Get latest release
     LATEST=$(gh api "repos/${REPO}/releases/latest" 2>/dev/null || echo "")
     
-    if [ -n "$LATEST" ] && [ "$LATEST" != "" ]; then
-        # Extract tag_name using jq or fallback to grep/sed
-        VERSION=""
-        if command -v jq &> /dev/null; then
-            VERSION=$(echo "$LATEST" | jq -r '.tag_name // empty')
-        fi
+    if [ -n "$LATEST" ]; then
+        VERSION=$(echo "$LATEST" | grep -m1 '"tag_name"' | cut -d'"' -f4)
+        echo "📦 Found release: $VERSION"
         
-        # Fallback: parse with grep/sed if jq not available or failed
-        if [ -z "$VERSION" ]; then
-            VERSION=$(echo "$LATEST" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-        fi
-        
-        # Remove 'v' prefix if present (e.g., v1.0.1 -> 1.0.1)
         VERSION_NUM="${VERSION#v}"
         
-        if [ -n "$VERSION" ] && [ "$VERSION" != "" ]; then
-            echo "📦 Found release: $VERSION"
+        # Try actual release format: gh-follow_{version}_{os}_{arch}.{format}
+        ARCHIVE="${EXTENSION_NAME}_${VERSION_NUM}_${OS}_${ARCH}.${FORMAT}"
+        DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
+        
+        if curl -sLf "$DOWNLOAD_URL" -o /dev/null 2>&1; then
+            echo "⬇️  Downloading ${ARCHIVE}..."
+            cd "$SCRIPT_DIR"
             
-            # Try multiple archive naming formats (in order of preference)
-            # Format 1: gh-follow-{os}-{arch} (new format, matches current GoReleaser config)
-            # Format 2: gh-follow_{version}_{os}_{arch} (old format with version)
-            ARCHIVE_NAMES=(
-                "${EXTENSION_NAME}-${OS}-${ARCH}"
-                "${EXTENSION_NAME}_${VERSION_NUM}_${OS}_${ARCH}"
-            )
+            if [ "$FORMAT" = "zip" ]; then
+                curl -sL "$DOWNLOAD_URL" -o temp.zip
+                unzip -o temp.zip
+                rm -f temp.zip
+            else
+                curl -sL "$DOWNLOAD_URL" | tar -xzf - 2>/dev/null
+            fi
             
-            DOWNLOADED=false
-            for ARCHIVE_NAME in "${ARCHIVE_NAMES[@]}"; do
-                DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE_NAME}.${FORMAT}"
-                
-                echo "   Trying: ${ARCHIVE_NAME}.${FORMAT}"
-                
-                TEMP_FILE="/tmp/${ARCHIVE_NAME}.${FORMAT}.$$"
-                
-                if curl -sL "$DOWNLOAD_URL" -o "$TEMP_FILE" 2>/dev/null && [ -s "$TEMP_FILE" ]; then
-                    echo "⬇️  Downloaded successfully, extracting..."
-                    
-                    # Extract to temp directory
-                    TEMP_DIR=$(mktemp -d)
-                    cd "$TEMP_DIR"
-                    
-                    if [ "$FORMAT" = "tar.gz" ]; then
-                        tar -xzf "$TEMP_FILE" 2>/dev/null || true
-                    else
-                        unzip -q "$TEMP_FILE" 2>/dev/null || true
-                    fi
-                    
-                    # List contents for debugging
-                    echo "   Archive contents:"
-                    ls -la 2>/dev/null || true
-                    
-                    # Find the extracted binary (try multiple possible names)
-                    EXTRACTED_BINARY=""
-                    for BINARY_NAME in "${EXTENSION_NAME}" "${EXTENSION_NAME}.exe" "${ARCHIVE_NAME}" "${ARCHIVE_NAME}.exe"; do
-                        if [ -f "$BINARY_NAME" ]; then
-                            EXTRACTED_BINARY="$BINARY_NAME"
-                            break
-                        fi
-                    done
-                    
-                    # Fallback: find any executable file
-                    if [ -z "$EXTRACTED_BINARY" ]; then
-                        if [ "$FORMAT" = "zip" ]; then
-                            EXTRACTED_BINARY=$(find . -maxdepth 1 -type f -name "*.exe" 2>/dev/null | head -1)
-                        else
-                            EXTRACTED_BINARY=$(find . -maxdepth 1 -type f -executable 2>/dev/null | head -1)
-                        fi
-                    fi
-                    
-                    if [ -n "$EXTRACTED_BINARY" ] && [ -f "$EXTRACTED_BINARY" ]; then
-                        # Move to final location (use .exe extension on Windows)
-                        if [ "$OS" = "windows" ]; then
-                            mv "$EXTRACTED_BINARY" "$SCRIPT_DIR/$EXTENSION_NAME.exe"
-                            chmod +x "$SCRIPT_DIR/$EXTENSION_NAME.exe"
-                        else
-                            mv "$EXTRACTED_BINARY" "$SCRIPT_DIR/$EXTENSION_NAME"
-                            chmod +x "$SCRIPT_DIR/$EXTENSION_NAME"
-                        fi
-                        
-                        # Cleanup
-                        rm -f "$TEMP_FILE"
-                        rm -rf "$TEMP_DIR"
-                        
-                        echo "✅ Installed ${EXTENSION_NAME} ${VERSION}"
-                        DOWNLOADED=true
-                        exit 0
-                    else
-                        echo "⚠️  Binary not found in archive"
-                        rm -rf "$TEMP_DIR"
-                    fi
-                    
-                    rm -f "$TEMP_FILE"
-                fi
-            done
-            
-            if [ "$DOWNLOADED" = false ]; then
-                echo "⚠️  Could not download pre-built binary for ${OS}-${ARCH}"
+            # Find and rename the binary to match script name (no extension)
+            if [ -f "${EXTENSION_NAME}.exe" ]; then
+                mv "${EXTENSION_NAME}.exe" "$EXTENSION_NAME"
+                chmod +x "$EXTENSION_NAME"
+                echo "✅ Installed ${EXTENSION_NAME} ${VERSION}"
+                exit 0
+            elif [ -f "$BINARY" ]; then
+                mv "$BINARY" "$EXTENSION_NAME"
+                chmod +x "$EXTENSION_NAME"
+                echo "✅ Installed ${EXTENSION_NAME} ${VERSION}"
+                exit 0
+            elif [ -f "${BINARY}.exe" ]; then
+                mv "${BINARY}.exe" "$EXTENSION_NAME"
+                chmod +x "$EXTENSION_NAME"
+                echo "✅ Installed ${EXTENSION_NAME} ${VERSION}"
+                exit 0
             fi
         fi
     fi
@@ -163,43 +97,18 @@ fi
 # Build from source
 echo "🔨 Building from source..."
 
-# Check if Go is installed
 if ! command -v go &> /dev/null; then
     echo "❌ Error: Go is not installed."
-    echo ""
     echo "Please install Go from: https://golang.org/doc/install"
-    echo ""
-    echo "Or download a pre-built binary from:"
-    echo "https://github.com/${REPO}/releases"
     exit 1
 fi
 
-GO_VERSION=$(go version 2>/dev/null | awk '{print $3}' | sed 's/go//')
+GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
 echo "   Go version: $GO_VERSION"
 
-# Build in a temp directory to avoid conflicts with this script
-TEMP_BUILD_DIR=$(mktemp -d)
-cd "$TEMP_BUILD_DIR"
-
-echo "   Cloning repository..."
-git clone --depth 1 "https://github.com/${REPO}.git" repo 2>/dev/null
-cd repo
-
-echo "   Building binary..."
-# Output to temp file first, then move to avoid conflict with the script
-if [ "$OS" = "windows" ]; then
-    go build -ldflags="-s -w" -o "${EXTENSION_NAME}.exe" ./cmd/gh-follow
-    mv "${EXTENSION_NAME}.exe" "$SCRIPT_DIR/"
-    chmod +x "$SCRIPT_DIR/${EXTENSION_NAME}.exe"
-else
-    go build -ldflags="-s -w" -o "${EXTENSION_NAME}.bin" ./cmd/gh-follow
-    mv "${EXTENSION_NAME}.bin" "$SCRIPT_DIR/${EXTENSION_NAME}"
-    chmod +x "$SCRIPT_DIR/${EXTENSION_NAME}"
-fi
-
-# Cleanup
 cd "$SCRIPT_DIR"
-rm -rf "$TEMP_BUILD_DIR"
+go build -ldflags="-s -w" -o "${EXTENSION_NAME}" ./cmd/gh-follow
+chmod +x "${EXTENSION_NAME}"
 
 echo "✅ ${EXTENSION_NAME} built and installed successfully!"
 echo ""
