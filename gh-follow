@@ -9,36 +9,49 @@ REPO="h1s97x/gh-follow"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Detect OS and architecture
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
+UNAME_OS=$(uname -s)
+UNAME_ARCH=$(uname -m)
 
-# Map architecture
-case $ARCH in
-    x86_64|amd64) ARCH="amd64" ;;
-    aarch64|arm64) ARCH="arm64" ;;
+# Normalize OS
+case "$UNAME_OS" in
+    Darwin|darwin)
+        OS="darwin"
+        ;;
+    Linux|linux)
+        OS="linux"
+        ;;
+    MINGW*|MSYS*|CYGWIN*|mingw*|msys*|cygwin*|Windows*|windows*)
+        OS="windows"
+        ;;
     *)
-        echo "⚠️  Unsupported architecture: $ARCH, building from source..."
+        OS=$(echo "$UNAME_OS" | tr '[:upper:]' '[:lower:]')
+        ;;
+esac
+
+# Normalize architecture
+case "$UNAME_ARCH" in
+    x86_64|amd64|AMD64)
+        ARCH="amd64"
+        ;;
+    aarch64|arm64|ARM64)
+        ARCH="arm64"
+        ;;
+    *)
+        echo "⚠️  Unsupported architecture: $UNAME_ARCH, building from source..."
         BUILD_FROM_SOURCE=true
         ;;
 esac
 
-# Map OS and set format
+# Set format based on OS
 FORMAT="tar.gz"
-case $OS in
-    darwin) ;;
-    linux) ;;
-    mingw*|msys*|cygwin*|windows*)
-        FORMAT="zip"
-        ;;
-    *)
-        echo "⚠️  Unsupported OS: $OS, building from source..."
-        BUILD_FROM_SOURCE=true
-        ;;
-esac
+if [ "$OS" = "windows" ]; then
+    FORMAT="zip"
+fi
 
 # Try to download pre-built binary
 if [ "$BUILD_FROM_SOURCE" != true ]; then
     echo "🔍 Checking for pre-built binary..."
+    echo "   Detected: ${OS}-${ARCH}"
     
     # Get latest release using gh api
     LATEST=$(gh api "repos/${REPO}/releases/latest" 2>/dev/null || echo "")
@@ -75,7 +88,7 @@ if [ "$BUILD_FROM_SOURCE" != true ]; then
                 
                 echo "   Trying: ${ARCHIVE_NAME}.${FORMAT}"
                 
-                TEMP_FILE="/tmp/${ARCHIVE_NAME}.${FORMAT}"
+                TEMP_FILE="/tmp/${ARCHIVE_NAME}.${FORMAT}.$$"
                 
                 if curl -sL "$DOWNLOAD_URL" -o "$TEMP_FILE" 2>/dev/null && [ -s "$TEMP_FILE" ]; then
                     echo "⬇️  Downloaded successfully, extracting..."
@@ -90,6 +103,10 @@ if [ "$BUILD_FROM_SOURCE" != true ]; then
                         unzip -q "$TEMP_FILE" 2>/dev/null || true
                     fi
                     
+                    # List contents for debugging
+                    echo "   Archive contents:"
+                    ls -la 2>/dev/null || true
+                    
                     # Find the extracted binary (try multiple possible names)
                     EXTRACTED_BINARY=""
                     for BINARY_NAME in "${EXTENSION_NAME}" "${EXTENSION_NAME}.exe" "${ARCHIVE_NAME}" "${ARCHIVE_NAME}.exe"; do
@@ -101,13 +118,22 @@ if [ "$BUILD_FROM_SOURCE" != true ]; then
                     
                     # Fallback: find any executable file
                     if [ -z "$EXTRACTED_BINARY" ]; then
-                        EXTRACTED_BINARY=$(find . -maxdepth 1 -type f \( -name "${EXTENSION_NAME}" -o -name "${EXTENSION_NAME}.exe" \) 2>/dev/null | head -1)
+                        if [ "$FORMAT" = "zip" ]; then
+                            EXTRACTED_BINARY=$(find . -maxdepth 1 -type f -name "*.exe" 2>/dev/null | head -1)
+                        else
+                            EXTRACTED_BINARY=$(find . -maxdepth 1 -type f -executable 2>/dev/null | head -1)
+                        fi
                     fi
                     
                     if [ -n "$EXTRACTED_BINARY" ] && [ -f "$EXTRACTED_BINARY" ]; then
-                        # Move to final location
-                        mv "$EXTRACTED_BINARY" "$SCRIPT_DIR/$EXTENSION_NAME"
-                        chmod +x "$SCRIPT_DIR/$EXTENSION_NAME"
+                        # Move to final location (use .exe extension on Windows)
+                        if [ "$OS" = "windows" ]; then
+                            mv "$EXTRACTED_BINARY" "$SCRIPT_DIR/$EXTENSION_NAME.exe"
+                            chmod +x "$SCRIPT_DIR/$EXTENSION_NAME.exe"
+                        else
+                            mv "$EXTRACTED_BINARY" "$SCRIPT_DIR/$EXTENSION_NAME"
+                            chmod +x "$SCRIPT_DIR/$EXTENSION_NAME"
+                        fi
                         
                         # Cleanup
                         rm -f "$TEMP_FILE"
@@ -117,8 +143,7 @@ if [ "$BUILD_FROM_SOURCE" != true ]; then
                         DOWNLOADED=true
                         exit 0
                     else
-                        echo "⚠️  Binary not found in archive, contents:"
-                        ls -la 2>/dev/null || true
+                        echo "⚠️  Binary not found in archive"
                         rm -rf "$TEMP_DIR"
                     fi
                     
@@ -152,21 +177,28 @@ fi
 GO_VERSION=$(go version 2>/dev/null | awk '{print $3}' | sed 's/go//')
 echo "   Go version: $GO_VERSION"
 
-# Build in a temp directory to avoid conflicts
+# Build in a temp directory to avoid conflicts with this script
 TEMP_BUILD_DIR=$(mktemp -d)
 cd "$TEMP_BUILD_DIR"
 
 echo "   Cloning repository..."
-git clone --depth 1 "https://github.com/${REPO}.git" . 2>/dev/null
+git clone --depth 1 "https://github.com/${REPO}.git" repo 2>/dev/null
+cd repo
 
 echo "   Building binary..."
-go build -ldflags="-s -w" -o "${EXTENSION_NAME}" ./cmd/gh-follow
-
-# Move to final location
-mv "${EXTENSION_NAME}" "$SCRIPT_DIR/"
-chmod +x "$SCRIPT_DIR/${EXTENSION_NAME}"
+# Output to temp file first, then move to avoid conflict with the script
+if [ "$OS" = "windows" ]; then
+    go build -ldflags="-s -w" -o "${EXTENSION_NAME}.exe" ./cmd/gh-follow
+    mv "${EXTENSION_NAME}.exe" "$SCRIPT_DIR/"
+    chmod +x "$SCRIPT_DIR/${EXTENSION_NAME}.exe"
+else
+    go build -ldflags="-s -w" -o "${EXTENSION_NAME}.bin" ./cmd/gh-follow
+    mv "${EXTENSION_NAME}.bin" "$SCRIPT_DIR/${EXTENSION_NAME}"
+    chmod +x "$SCRIPT_DIR/${EXTENSION_NAME}"
+fi
 
 # Cleanup
+cd "$SCRIPT_DIR"
 rm -rf "$TEMP_BUILD_DIR"
 
 echo "✅ ${EXTENSION_NAME} built and installed successfully!"
