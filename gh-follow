@@ -2,11 +2,26 @@
 # gh-follow - GitHub CLI extension for managing follow relationships
 # This script is used by 'gh extension install' to install the extension
 
+EXTENSION_NAME="gh-follow"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Check if binary already exists and run it
+# On Windows, binary is saved as gh-follow.exe
+# On Unix, binary is saved as gh-follow (no extension)
+if [ -f "$SCRIPT_DIR/${EXTENSION_NAME}.exe" ]; then
+    exec "$SCRIPT_DIR/${EXTENSION_NAME}.exe" "$@"
+elif [ -f "$SCRIPT_DIR/$EXTENSION_NAME" ]; then
+    # Check if it's a binary (not this script)
+    if ! head -1 "$SCRIPT_DIR/$EXTENSION_NAME" 2>/dev/null | grep -q "^#!/"; then
+        exec "$SCRIPT_DIR/$EXTENSION_NAME" "$@"
+    fi
+fi
+
+# --- Installation logic below (only runs if binary doesn't exist) ---
+
 set -e
 
-EXTENSION_NAME="gh-follow"
 REPO="h1s97x/gh-follow"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Detect OS and architecture
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -22,19 +37,18 @@ case $ARCH in
         ;;
 esac
 
-# Map OS and set archive format
-FORMAT="tar.gz"
+# Map OS and set format
+IS_WINDOWS=false
 case $OS in
     darwin)
-        BINARY="${EXTENSION_NAME}-darwin-${ARCH}"
+        FORMAT="tar.gz"
         ;;
     linux)
-        BINARY="${EXTENSION_NAME}-linux-${ARCH}"
+        FORMAT="tar.gz"
         ;;
     mingw*|msys*|cygwin*|windows*)
-        BINARY="${EXTENSION_NAME}-windows-${ARCH}"
         FORMAT="zip"
-        OS="windows"
+        IS_WINDOWS=true
         ;;
     *)
         echo "⚠️  Unsupported OS: $OS, building from source..."
@@ -50,43 +64,48 @@ if [ "$BUILD_FROM_SOURCE" != true ]; then
     LATEST=$(gh api "repos/${REPO}/releases/latest" 2>/dev/null || echo "")
     
     if [ -n "$LATEST" ]; then
-        VERSION=$(echo "$LATEST" | grep -m1 '"tag_name"' | cut -d'"' -f4)
-        echo "📦 Found release: $VERSION"
+        # Parse tag_name - use sed for more reliable parsing
+        VERSION=$(echo "$LATEST" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
         
-        VERSION_NUM="${VERSION#v}"
-        
-        # Try actual release format: gh-follow_{version}_{os}_{arch}.{format}
-        ARCHIVE="${EXTENSION_NAME}_${VERSION_NUM}_${OS}_${ARCH}.${FORMAT}"
-        DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
-        
-        if curl -sLf "$DOWNLOAD_URL" -o /dev/null 2>&1; then
-            echo "⬇️  Downloading ${ARCHIVE}..."
-            cd "$SCRIPT_DIR"
+        if [ -z "$VERSION" ]; then
+            echo "⚠️  Could not parse version from release"
+        else
+            echo "📦 Found release: $VERSION"
             
-            if [ "$FORMAT" = "zip" ]; then
-                curl -sL "$DOWNLOAD_URL" -o temp.zip
-                unzip -o temp.zip
-                rm -f temp.zip
-            else
-                curl -sL "$DOWNLOAD_URL" | tar -xzf - 2>/dev/null
-            fi
+            # Version without 'v' prefix
+            VERSION_NUM="${VERSION#v}"
             
-            # Find and rename the binary to match script name (no extension)
-            if [ -f "${EXTENSION_NAME}.exe" ]; then
-                mv "${EXTENSION_NAME}.exe" "$EXTENSION_NAME"
-                chmod +x "$EXTENSION_NAME"
-                echo "✅ Installed ${EXTENSION_NAME} ${VERSION}"
-                exit 0
-            elif [ -f "$BINARY" ]; then
-                mv "$BINARY" "$EXTENSION_NAME"
-                chmod +x "$EXTENSION_NAME"
-                echo "✅ Installed ${EXTENSION_NAME} ${VERSION}"
-                exit 0
-            elif [ -f "${BINARY}.exe" ]; then
-                mv "${BINARY}.exe" "$EXTENSION_NAME"
-                chmod +x "$EXTENSION_NAME"
-                echo "✅ Installed ${EXTENSION_NAME} ${VERSION}"
-                exit 0
+            # Construct archive name (matching GoReleaser output)
+            ARCHIVE="${EXTENSION_NAME}_${VERSION_NUM}_${OS}_${ARCH}.${FORMAT}"
+            DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
+            
+            if curl -sLf "$DOWNLOAD_URL" -o /dev/null 2>&1; then
+                echo "⬇️  Downloading ${ARCHIVE}..."
+                cd "$SCRIPT_DIR"
+                
+                if [ "$FORMAT" = "zip" ]; then
+                    curl -sL "$DOWNLOAD_URL" -o temp.zip
+                    unzip -o temp.zip
+                    rm -f temp.zip
+                else
+                    curl -sL "$DOWNLOAD_URL" | tar -xzf - 2>/dev/null
+                fi
+                
+                # On Windows: keep .exe suffix, script will call it
+                # On Unix: rename to no extension
+                if [ "$IS_WINDOWS" = true ]; then
+                    if [ -f "${EXTENSION_NAME}.exe" ]; then
+                        chmod +x "${EXTENSION_NAME}.exe"
+                        echo "✅ Installed ${EXTENSION_NAME} ${VERSION}"
+                        exec "$SCRIPT_DIR/${EXTENSION_NAME}.exe" "$@"
+                    fi
+                else
+                    if [ -f "${EXTENSION_NAME}" ]; then
+                        chmod +x "${EXTENSION_NAME}"
+                        echo "✅ Installed ${EXTENSION_NAME} ${VERSION}"
+                        exec "$SCRIPT_DIR/${EXTENSION_NAME}" "$@"
+                    fi
+                fi
             fi
         fi
     fi
@@ -99,22 +118,32 @@ echo "🔨 Building from source..."
 
 if ! command -v go &> /dev/null; then
     echo "❌ Error: Go is not installed."
+    echo ""
     echo "Please install Go from: https://golang.org/doc/install"
+    echo ""
+    echo "Or download a pre-built binary from:"
+    echo "https://github.com/${REPO}/releases"
     exit 1
 fi
 
 GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
 echo "   Go version: $GO_VERSION"
 
-cd "$SCRIPT_DIR"
-go build -ldflags="-s -w" -o "${EXTENSION_NAME}" ./cmd/gh-follow
-chmod +x "${EXTENSION_NAME}"
+# Build in temp dir to avoid conflict with this script file
+TEMP_DIR=$(mktemp -d)
+cd "$TEMP_DIR"
+git clone --depth 1 "https://github.com/${REPO}.git" . 2>/dev/null
 
-echo "✅ ${EXTENSION_NAME} built and installed successfully!"
-echo ""
-echo "📖 Usage:"
-echo "   gh follow list              # List users you follow"
-echo "   gh follow followers         # List your followers"
-echo "   gh follow follow <user>     # Follow a user"
-echo "   gh follow unfollow <user>   # Unfollow a user"
-echo "   gh follow --help            # Show all options"
+if [ "$IS_WINDOWS" = true ]; then
+    go build -ldflags="-s -w" -o "${EXTENSION_NAME}.exe" ./cmd/gh-follow
+    mv "${EXTENSION_NAME}.exe" "$SCRIPT_DIR/"
+    chmod +x "$SCRIPT_DIR/${EXTENSION_NAME}.exe"
+    echo "✅ ${EXTENSION_NAME} built successfully!"
+    exec "$SCRIPT_DIR/${EXTENSION_NAME}.exe" "$@"
+else
+    go build -ldflags="-s -w" -o "${EXTENSION_NAME}" ./cmd/gh-follow
+    mv "${EXTENSION_NAME}" "$SCRIPT_DIR/"
+    chmod +x "$SCRIPT_DIR/${EXTENSION_NAME}"
+    echo "✅ ${EXTENSION_NAME} built successfully!"
+    exec "$SCRIPT_DIR/${EXTENSION_NAME}" "$@"
+fi
