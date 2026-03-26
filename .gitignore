@@ -18,7 +18,6 @@ vendor/
 go.work
 
 # Build output
-/gh-follow
 /gh-follow_unix
 bin/
 
