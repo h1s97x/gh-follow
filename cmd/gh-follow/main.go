@@ -106,29 +106,34 @@ func main() {
 			},
 			{
 				Name:     "gist",
-				Usage:    "Manage Gist sync for follow list",
+				Usage:    "Manage Gist sync for follow list [🚧 WIP - coming soon]",
 				Category: "Sync",
+				Hidden:   true,
 				Action:   cmd.Gist,
 				Subcommands: []*cli.Command{
 					{
 						Name:   "create",
-						Usage:  "Create a new Gist for sync",
+						Usage:  "Create a new Gist for sync [🚧 WIP]",
+						Hidden: true,
 						Action: cmd.GistCreate,
 					},
 					{
 						Name:   "status",
-						Usage:  "Show Gist sync status",
+						Usage:  "Show Gist sync status [🚧 WIP]",
+						Hidden: true,
 						Action: cmd.GistStatus,
 					},
 					{
 						Name:   "pull",
-						Usage:  "Pull follow list from Gist",
+						Usage:  "Pull follow list from Gist [🚧 WIP]",
+						Hidden: true,
 						Flags:  flags.GistPullFlags(),
 						Action: cmd.GistPull,
 					},
 					{
 						Name:   "push",
-						Usage:  "Push follow list to Gist",
+						Usage:  "Push follow list to Gist [🚧 WIP]",
+						Hidden: true,
 						Flags:  flags.GistPushFlags(),
 						Action: cmd.GistPush,
 					},
@@ -202,7 +207,8 @@ func main() {
 				Subcommands: []*cli.Command{
 					{
 						Name:   "trending",
-						Usage:  "Show trending users",
+						Usage:  "Show trending users [🚧 WIP - coming soon]",
+						Hidden: true,
 						Flags:  flags.SuggestTrendingFlags(),
 						Action: cmd.SuggestTrending,
 					},
@@ -214,7 +220,8 @@ func main() {
 					},
 					{
 						Name:   "inactive",
-						Usage:  "Find inactive followed users",
+						Usage:  "Find inactive followed users [🚧 WIP - coming soon]",
+						Hidden: true,
 						Flags:  flags.SuggestInactiveFlags(),
 						Action: cmd.SuggestInactive,
 					},
