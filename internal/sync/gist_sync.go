@@ -29,6 +29,7 @@ func NewGistSync(client *github.GitHubClient, gistID string) *GistSync {
 }
 
 // CreateGist creates a new Gist with the follow list
+// Note: This feature is planned for v0.3.0
 func (gs *GistSync) CreateGist(ctx context.Context, list *models.FollowList) (*go_github.Gist, error) {
 	// Serialize the follow list
 	data, err := json.MarshalIndent(list, "", "  ")
@@ -47,30 +48,31 @@ func (gs *GistSync) CreateGist(ctx context.Context, list *models.FollowList) (*g
 		},
 	}
 
-	// Note: We need to access the underlying client
-	// For now, return an error indicating this needs the raw client
-	_ = gist // Silence unused variable error until we implement proper API access
-	return nil, fmt.Errorf("CreateGist requires direct API access - use sync manager")
+	// Note: Gist API requires additional implementation
+	// This feature is planned for a future release
+	_ = gist // Silence unused variable warning
+	return nil, fmt.Errorf("Gist sync is planned for v0.3.0 - stay tuned!")
 }
 
 // Download downloads the follow list from Gist
+// Note: This feature is planned for v0.3.0
 func (gs *GistSync) Download(ctx context.Context) (*models.FollowList, error) {
 	if gs.gistID == "" {
 		return nil, fmt.Errorf("Gist ID not configured")
 	}
 
-	// This is a simplified version - in real implementation,
-	// you would use the GitHub client to fetch the gist
-	return nil, fmt.Errorf("Download requires direct API access - use sync manager")
+	// Gist API requires additional implementation
+	return nil, fmt.Errorf("Gist sync is planned for v0.3.0 - stay tuned!")
 }
 
 // Upload uploads the follow list to Gist
+// Note: This feature is planned for v0.3.0
 func (gs *GistSync) Upload(ctx context.Context, list *models.FollowList) error {
 	// Update timestamp
 	list.UpdatedAt = time.Now()
 
-	// This is a simplified version
-	return fmt.Errorf("Upload requires direct API access - use sync manager")
+	// Gist API requires additional implementation
+	return fmt.Errorf("Gist sync is planned for v0.3.0 - stay tuned!")
 }
 
 // GetGistID returns the current Gist ID

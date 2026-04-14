@@ -42,9 +42,10 @@ func GistCreate(c *cli.Context) error {
 	// Create the Gist
 	_, err = gs.CreateGist(ctx, list)
 	if err != nil {
-		// Note: This is a placeholder - actual Gist creation requires direct API access
-		fmt.Println("⚠️  Gist creation requires additional implementation")
-		fmt.Println("This feature needs direct GitHub API access to create Gists.")
+		fmt.Println("🚧 Gist sync is planned for v0.3.0")
+		fmt.Println("Please follow our updates for cloud sync features!")
+		fmt.Println()
+		fmt.Println("For now, use 'gh follow sync' to sync with your GitHub account.")
 		return nil
 	}
 
