@@ -202,7 +202,8 @@ func main() {
 				Subcommands: []*cli.Command{
 					{
 						Name:   "trending",
-						Usage:  "Show trending users",
+						Usage:  "Show trending users [🚧 WIP - coming soon]",
+						Hidden: true,
 						Flags:  flags.SuggestTrendingFlags(),
 						Action: cmd.SuggestTrending,
 					},
@@ -214,7 +215,8 @@ func main() {
 					},
 					{
 						Name:   "inactive",
-						Usage:  "Find inactive followed users",
+						Usage:  "Find inactive followed users [🚧 WIP - coming soon]",
+						Hidden: true,
 						Flags:  flags.SuggestInactiveFlags(),
 						Action: cmd.SuggestInactive,
 					},
