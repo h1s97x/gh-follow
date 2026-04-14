@@ -28,6 +28,7 @@ func GistCreate(c *cli.Context) error {
 
 	gc := gh_client.NewGitHubClient(token, "github.com")
 	st := storage.NewStorage(storage.DefaultStoragePath())
+	cm := config.NewConfigManager(config.DefaultConfigPath())
 	ctx := context.Background()
 
 	// Load local list
@@ -40,18 +41,23 @@ func GistCreate(c *cli.Context) error {
 	gs := sync.NewGistSync(gc, "")
 
 	// Create the Gist
-	_, err = gs.CreateGist(ctx, list)
+	gist, err := gs.CreateGist(ctx, list)
 	if err != nil {
-		fmt.Println("🚧 Gist sync is planned for v0.3.0")
-		fmt.Println("Please follow our updates for cloud sync features!")
-		fmt.Println()
-		fmt.Println("For now, use 'gh follow sync' to sync with your GitHub account.")
-		return nil
+		return fmt.Errorf("failed to create Gist: %w", err)
 	}
 
-	// Save Gist ID to config would happen here
-	fmt.Println("✅ Gist sync setup initiated")
-	fmt.Println("Use 'gh follow sync --gist' to sync changes.")
+	// Save Gist ID to config
+	gistID := gist.GetID()
+	if err := cm.SetGistID(gistID); err != nil {
+		return fmt.Errorf("failed to save Gist ID: %w", err)
+	}
+
+	fmt.Println("✅ Gist created successfully!")
+	fmt.Printf("   Gist ID: %s\n", gistID)
+	fmt.Printf("   URL: https://gist.github.com/%s\n", gistID)
+	fmt.Println()
+	fmt.Println("   Use 'gh follow gist push' to push your follow list")
+	fmt.Println("   Use 'gh follow gist pull' to pull your follow list")
 
 	return nil
 }
