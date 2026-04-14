@@ -45,6 +45,11 @@ func NewGitHubClient(token string, hostname string) *GitHubClient {
 	}
 }
 
+// GetClient returns the underlying GitHub client for advanced operations
+func (gc *GitHubClient) GetClient() *github.Client {
+	return gc.client
+}
+
 // GetTokenFromGH retrieves the GitHub token from gh CLI
 func GetTokenFromGH() (string, error) {
 	cmd := exec.Command("gh", "auth", "token")

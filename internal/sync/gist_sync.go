@@ -28,7 +28,7 @@ func NewGistSync(client *github.GitHubClient, gistID string) *GistSync {
 	}
 }
 
-// CreateGist creates a new Gist with the follow list
+// CreateGist creates a new private Gist with the follow list
 func (gs *GistSync) CreateGist(ctx context.Context, list *models.FollowList) (*go_github.Gist, error) {
 	// Serialize the follow list
 	data, err := json.MarshalIndent(list, "", "  ")
@@ -37,20 +37,23 @@ func (gs *GistSync) CreateGist(ctx context.Context, list *models.FollowList) (*g
 	}
 
 	// Create Gist
-	gist := &go_github.Gist{
-		Description: go_github.String("GH-Follow sync data"),
+	gist, _, err := gs.client.GetClient().Gists.Create(ctx, &go_github.Gist{
+		Description: go_github.String("GH-Follow sync data (managed by gh-follow)"),
 		Public:      go_github.Bool(false), // Always private
 		Files: map[go_github.GistFilename]go_github.GistFile{
 			go_github.GistFilename(gs.filename): {
 				Content: go_github.String(string(data)),
 			},
 		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Gist: %w", err)
 	}
 
-	// Note: We need to access the underlying client
-	// For now, return an error indicating this needs the raw client
-	_ = gist // Silence unused variable error until we implement proper API access
-	return nil, fmt.Errorf("CreateGist requires direct API access - use sync manager")
+	// Update gist ID
+	gs.gistID = gist.GetID()
+
+	return gist, nil
 }
 
 // Download downloads the follow list from Gist
@@ -59,18 +62,53 @@ func (gs *GistSync) Download(ctx context.Context) (*models.FollowList, error) {
 		return nil, fmt.Errorf("Gist ID not configured")
 	}
 
-	// This is a simplified version - in real implementation,
-	// you would use the GitHub client to fetch the gist
-	return nil, fmt.Errorf("Download requires direct API access - use sync manager")
+	// Get the Gist
+	gist, _, err := gs.client.GetClient().Gists.Get(ctx, gs.gistID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Gist: %w", err)
+	}
+
+	// Find our follow list file
+	file, ok := gist.Files[go_github.GistFilename(gs.filename)]
+	if !ok {
+		return nil, fmt.Errorf("follow list file not found in Gist")
+	}
+
+	// Parse the JSON content
+	var list models.FollowList
+	if err := json.Unmarshal([]byte(file.GetContent()), &list); err != nil {
+		return nil, fmt.Errorf("failed to parse follow list: %w", err)
+	}
+
+	return &list, nil
 }
 
 // Upload uploads the follow list to Gist
 func (gs *GistSync) Upload(ctx context.Context, list *models.FollowList) error {
-	// Update timestamp
-	list.UpdatedAt = time.Now()
+	if gs.gistID == "" {
+		return fmt.Errorf("Gist ID not configured")
+	}
 
-	// This is a simplified version
-	return fmt.Errorf("Upload requires direct API access - use sync manager")
+	// Serialize the follow list
+	data, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal follow list: %w", err)
+	}
+
+	// Update the Gist
+	_, _, err = gs.client.GetClient().Gists.Edit(ctx, gs.gistID, &go_github.Gist{
+		Description: go_github.String("GH-Follow sync data (managed by gh-follow)"),
+		Files: map[go_github.GistFilename]go_github.GistFile{
+			go_github.GistFilename(gs.filename): {
+				Content: go_github.String(string(data)),
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update Gist: %w", err)
+	}
+
+	return nil
 }
 
 // GetGistID returns the current Gist ID
