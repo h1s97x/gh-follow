@@ -224,12 +224,23 @@ func syncPull(ctx context.Context, gc *gh_client.GitHubClient, st *storage.Stora
 	fmt.Printf("Found %d users to add, %d users to remove\n", len(toAdd), len(toRemove))
 
 	if dryRun {
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		if len(toAdd) > 0 {
-			fmt.Printf("Would add: %v\n", toAdd)
+			fmt.Printf("Would add (%d):\n", len(toAdd))
+			for _, u := range toAdd {
+				fmt.Printf("  • %s\n", u)
+			}
 		}
 		if len(toRemove) > 0 {
-			fmt.Printf("Would remove: %v\n", toRemove)
+			fmt.Printf("Would remove (%d):\n", len(toRemove))
+			for _, u := range toRemove {
+				fmt.Printf("  • %s\n", u)
+			}
 		}
+		if len(toAdd) == 0 && len(toRemove) == 0 {
+			fmt.Println("✓ No changes needed")
+		}
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		return nil
 	}
 
@@ -282,9 +293,16 @@ func syncPush(ctx context.Context, gc *gh_client.GitHubClient, st *storage.Stora
 	fmt.Printf("Found %d users to follow on GitHub\n", len(toFollow))
 
 	if dryRun {
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		if len(toFollow) > 0 {
-			fmt.Printf("Would follow: %v\n", toFollow)
+			fmt.Printf("Would follow (%d):\n", len(toFollow))
+			for _, u := range toFollow {
+				fmt.Printf("  • %s\n", u)
+			}
+		} else {
+			fmt.Println("✓ Already in sync")
 		}
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		return nil
 	}
 
